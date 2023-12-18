@@ -180,6 +180,7 @@ int main(int argc, char const *argv[])
                 prinf_then_exit("error when writing to file");
             }
             total_received++;
+            expected_seqno = !expected_seqno;
         }
     }
     freeaddrinfo(p_serverinfo);
