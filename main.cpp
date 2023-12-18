@@ -13,6 +13,7 @@
 #define MSS 500
 #define AckPacketSize 8
 #define maxSegSize  508
+#define TIMEOUT_SECONDS 5;
 using namespace std;
 
 int randomSeed;
@@ -74,27 +75,63 @@ bool corruptDatagram()
     }
     return false;
 }
+int timeOut(int sockfd) {
+    fd_set read_fds;
+    FD_ZERO(&read_fds);
+    FD_SET(sockfd, &read_fds);
+    // Set up the timeout
+    struct timeval timeout{};
+    timeout.tv_sec = TIMEOUT_SECONDS;
+    timeout.tv_usec = 0;
+
+    // Wait for the socket to become readable or for the timeout to expire
+    int status = select(sockfd + 1, &read_fds, nullptr, nullptr, &timeout);
+
+    return status;
+}
+///stop and wait
+
 void sendDataPackets(int client_fd, struct sockaddr_in client_addr ,struct packet packets[],int numberOfPackets){
-    char sendBuffer [maxSegSize];
-    vector<packet> unsent;
-    memset(sendBuffer, 0, maxSegSize);
+    //char sendBuffer [maxSegSize];
+    //memset(sendBuffer, 0, maxSegSize);
     for(int i=0;i<numberOfPackets;i++){
-        memcpy(sendBuffer, &packets[i], sizeof(packets[i]));
+        //memcpy(sendBuffer, &packets[i], sizeof(packets[i]));
         if (!corruptDatagram()){
-        size_t bytesSent = sendto(client_fd, sendBuffer, maxSegSize, 0, (struct sockaddr *)&client_addr, sizeof(struct sockaddr));
-        if (bytesSent == -1) {
-            printf("failed to send a packet");
-            return;
-         }
+            size_t bytesSent = sendto(client_fd, &packets[i], maxSegSize, 0, (struct sockaddr *)&client_addr,
+                                     sizeof(struct sockaddr));
+            if (bytesSent == -1) {
+                printf("failed to send a packet");
+                return;
+            }
+            ///wait to recieve ack until a certain time then timeout
+            int status =timeOut(client_fd);
+            if (status == -1) {
+            // An error occurred
+            printf("Error waiting for socket\n");
+            return ;
+            }
+            else if (status == 0) {
+                printf("Timeout Expired\n");
+                i--;
+            }
+            else{
+                struct ack_packet ack;
+                socklen_t ClientAddressLength =sizeof(struct sockaddr);
+                long bytes_received = recvfrom(client_fd, &ack, AckPacketSize, 0,
+                                         (struct sockaddr*)&client_addr,&ClientAddressLength);
+                printf("Ack is recieved for packet with ackno : %d\n",ack.ackno);
+            }
 
         }
         else{
-            unsent.push_back(packets[i]);
+            printf("data is corrupted , will be resent again\n");
+            i--;
+            
         }
 
     }
     
-    
+    close(client_fd);
     
     return;
 }
@@ -104,10 +141,10 @@ void sendAckFileName(int client_fd,string fName,int numberOfPackets,struct socka
     ack.cksum=0;
     ack.len=numberOfPackets;
     ack.ackno=0;
-    char* buffer = new char[maxSegSize];
-    memset(buffer, 0, maxSegSize);
-    memcpy(buffer, &ack, sizeof(ack));
-    ssize_t bytesSent = sendto(client_fd, buffer, maxSegSize, 0, (struct sockaddr *)&client_addr, sizeof(struct sockaddr));
+    //char* buffer = new char[maxSegSize];
+    //memset(buffer, 0, maxSegSize);
+    //memcpy(buffer, &ack, sizeof(ack));
+    ssize_t bytesSent = sendto(client_fd, &ack, AckPacketSize, 0, (struct sockaddr *)&client_addr, sizeof(struct sockaddr));
     if (bytesSent == -1) {
         perror("Error Sending The Ack !");
         exit(1);
@@ -159,8 +196,9 @@ void handleClientRequest(int serverSocket, int client_fd, struct sockaddr_in cli
     auto* data_packet = (struct packet*) rec_buffer;
     string fileName = string(data_packet->data);
     printf("the file name that the client wants is : %s\n", fileName.c_str());
-    printf("with size: %zu \n",fileName.size());
+    //printf("with size: %zu \n",fileName.size());
     long fileSize = getFileSize(fileName.c_str());
+    printf("file size is : %ld\n",fileSize);
     if (fileSize == -1){
         return;
     }
@@ -197,6 +235,7 @@ int main(int argc, char const* argv[]) {
     serverAddress.sin_port = htons(portNo);
     serverAddress.sin_addr.s_addr = INADDR_ANY;
     memset(&(serverAddress.sin_zero), '\0', AckPacketSize);
+    
 
     if (bind(serverSocket, (struct sockaddr *) &serverAddress, sizeof(serverAddress)) < 0)
     {
