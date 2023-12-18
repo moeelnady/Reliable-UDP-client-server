@@ -67,8 +67,8 @@ int main(int argc, char const *argv[])
     {
         exitWithMessage("failed to create socket");
     }
-    printf("%s\n",inet_ntoa(((struct sockaddr_in*)p->ai_addr)->sin_addr));
-    printf("%d\n",(((struct sockaddr_in*)p->ai_addr)->sin_port));
+    printf("%s\n", inet_ntoa(((struct sockaddr_in *)p->ai_addr)->sin_addr));
+    printf("%d\n", (((struct sockaddr_in *)p->ai_addr)->sin_port));
 
     struct packet fileRequestPacket;
     fileRequestPacket.seqno = 0;
@@ -85,7 +85,7 @@ int main(int argc, char const *argv[])
     int recvStatus;
     while (1)
     {
-        sendStatus = (socketfd, &fileRequestPacket, sizeof fileRequestPacket, 0, p->ai_addr, p->ai_addrlen);
+        sendStatus = sendto(socketfd, &fileRequestPacket, sizeof(fileRequestPacket), 0, p->ai_addr, p->ai_addrlen);
         printf("%d bytes was sent\n", sendStatus);
 
         recvStatus = recvfrom(socketfd, &response, sizeof(response), 0, &serveraddr, &serveraddr_len);
