@@ -75,7 +75,7 @@ int main(int argc, char const *argv[])
     fileRequestPacket.len = strlen(argv[3]) + 1;
     memcpy(fileRequestPacket.data, argv[3], fileRequestPacket.len);
 
-    struct packet *response = malloc(sizeof(struct packet));
+    struct packet response;
 
     struct timeval timeout;
     timeout.tv_sec = 3;
@@ -88,7 +88,7 @@ int main(int argc, char const *argv[])
         sendStatus = (socketfd, &fileRequestPacket, sizeof fileRequestPacket, 0, p->ai_addr, p->ai_addrlen);
         printf("%d bytes was sent\n", sendStatus);
 
-        recvStatus = recvfrom(socketfd, response, sizeof(response), 0, &serveraddr, &serveraddr_len);
+        recvStatus = recvfrom(socketfd, &response, sizeof(response), 0, &serveraddr, &serveraddr_len);
 
         if (recvStatus == sizeof(struct packet))
         {
@@ -97,5 +97,5 @@ int main(int argc, char const *argv[])
 
         printf("timeout, request will be resent\n");
     }
-    printf("%s", response->data);
+    printf("%s", response.data);
 }
