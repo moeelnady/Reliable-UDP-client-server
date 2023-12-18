@@ -75,7 +75,7 @@ int main(int argc, char const *argv[])
     fileRequestPacket.len = strlen(argv[3]) + 1;
     memcpy(fileRequestPacket.data, argv[3], fileRequestPacket.len);
 
-    struct packet response;
+    struct ack_packet response;
 
     struct timeval timeout;
     timeout.tv_sec = 3;
@@ -83,8 +83,10 @@ int main(int argc, char const *argv[])
     setsockopt(socketfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
     int sendStatus;
     int recvStatus;
+
     while (1)
     {
+
         sendStatus = sendto(socketfd, &fileRequestPacket, sizeof(fileRequestPacket), 0, p->ai_addr, p->ai_addrlen);
         printf("%d bytes was sent\n", sendStatus);
 
@@ -97,5 +99,9 @@ int main(int argc, char const *argv[])
 
         printf("timeout, request will be resent\n");
     }
-    printf("%s", response.data);
+
+    if (response.ackno == -1)
+    {
+        printf("server doesn't have the requested file");
+    }
 }
