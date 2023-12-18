@@ -10,7 +10,7 @@
 #include <unistd.h>
 #include <math.h>
 #define PORT 8080
-#define MSS 499
+#define MSS 500
 #define AckPacketSize 8
 #define maxSegSize  508
 using namespace std;
@@ -65,7 +65,39 @@ long getFileSize(const char *filename) {
 
     return size;
 }
+bool corruptDatagram()
+{
+    double isLost = (rand() % 100) * plp;
+    if (isLost >= 5.9)
+    {
+        return true;
+    }
+    return false;
+}
+void sendDataPackets(int client_fd, struct sockaddr_in client_addr ,struct packet packets[],int numberOfPackets){
+    char sendBuffer [maxSegSize];
+    vector<packet> unsent;
+    memset(sendBuffer, 0, maxSegSize);
+    for(int i=0;i<numberOfPackets;i++){
+        memcpy(sendBuffer, &packets[i], sizeof(packets[i]));
+        if (!corruptDatagram()){
+        size_t bytesSent = sendto(client_fd, sendBuffer, maxSegSize, 0, (struct sockaddr *)&client_addr, sizeof(struct sockaddr));
+        if (bytesSent == -1) {
+            printf("failed to send a packet");
+            return;
+         }
 
+        }
+        else{
+            unsent.push_back(packets[i]);
+        }
+
+    }
+    
+    
+    
+    return;
+}
 
 void sendAckFileName(int client_fd,string fName,int numberOfPackets,struct sockaddr_in client_addr){
     struct ack_packet ack;
@@ -77,7 +109,7 @@ void sendAckFileName(int client_fd,string fName,int numberOfPackets,struct socka
     memcpy(buffer, &ack, sizeof(ack));
     ssize_t bytesSent = sendto(client_fd, buffer, maxSegSize, 0, (struct sockaddr *)&client_addr, sizeof(struct sockaddr));
     if (bytesSent == -1) {
-        perror("Error Sending The Ack ! ");
+        perror("Error Sending The Ack !");
         exit(1);
     } else {
         printf("Ack of file name is sent successfully\n");
@@ -85,19 +117,25 @@ void sendAckFileName(int client_fd,string fName,int numberOfPackets,struct socka
 
 
     /*
-        get data from file sent by client
+        get data from file name sent by client
     */
    FILE *file = fopen(&fName[0], "rb"); // Open the file in binary mode
     if (file == NULL) {
         perror("Error opening file");
         return;
     }
-    char buffer[MSS];
+    char data_buffer[MSS];
     size_t bytesRead;
     size_t totalBytesRead = 0;
     char *response = NULL;
     size_t responseSize = 0;
-    while ((bytesRead = fread(buffer, 1, sizeof(buffer), file)) > 0) {
+    struct packet packets_to_be_sent[numberOfPackets];
+    int i=0;
+    while (((bytesRead = fread(data_buffer, 1, sizeof(data_buffer), file)) > 0) && i<numberOfPackets) {
+            
+            strcpy(packets_to_be_sent[i].data,data_buffer);
+            packets_to_be_sent[i].len=bytesRead;
+            i++;
         // Resize the response buffer
         response =(char *)realloc(response, responseSize + bytesRead);
         if (response == NULL) {
@@ -106,14 +144,14 @@ void sendAckFileName(int client_fd,string fName,int numberOfPackets,struct socka
             return;
         }
         // Copy the read data to the response buffer
-        memcpy(response + responseSize, buffer, bytesRead);
+        memcpy(response + responseSize, data_buffer, bytesRead);
         responseSize += bytesRead;
         totalBytesRead += bytesRead;
     }
 
     ///TODO:*******SEND DATA AND HANDLE CONGESTION**********************************************
 
-
+    sendDataPackets(client_fd, client_addr, packets_to_be_sent,numberOfPackets);
 
 
 }
@@ -122,14 +160,15 @@ void handleClientRequest(int serverSocket, int client_fd, struct sockaddr_in cli
     string fileName = string(data_packet->data);
     printf("the file name that the client wants is : %s\n", fileName.c_str());
     printf("with size: %zu \n",fileName.size());
-    int fileSize = getFileSize(fileName.c_str());
+    long fileSize = getFileSize(fileName.c_str());
     if (fileSize == -1){
         return;
     }
-    int numberOfPackets = ceil(fileSize * 1.0 / MSS);
+    int numberOfPackets = (fileSize+MSS-1)/MSS;
     printf("File Size : %ld Bytes , Num. of chuncks : %d\n", fileSize, numberOfPackets);
     
     ///TODO: SEND AN ACK()**************************************************************
+    sendAckFileName(client_fd,fileName,numberOfPackets,client_addr);
 
     
 }
@@ -188,10 +227,9 @@ int main(int argc, char const* argv[]) {
                 printf("Failed to create client socket\n");
                 return 5;
             }
-             //handle_client_request(serverSocket,clientSocket, clientAddress, buffer , maxSegSize);
-             return 6;
+            handleClientRequest(serverSocket,clientSocket, clientAddress, buffer , maxSegSize);
+            return 6;
          }
-
 
     }
  
