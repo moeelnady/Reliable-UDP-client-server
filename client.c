@@ -183,6 +183,7 @@ int main(int argc, char const *argv[])
             expected_seqno = !expected_seqno;
         }
     }
+    fclose(file);
     freeaddrinfo(p_serverinfo);
     close(socket_fd);
 }
