@@ -34,46 +34,6 @@ void prinf_then_exit(const char *message, ...)
     va_end(args);
     exit(0);
 }
-/**
- * @brief a function that sends a message using sendto and exits if there is an error
- * @param socket the sending socket
- * @param buffer a pointer to the buffer that contains the data where sending
- * @param size the size of the data to be sent (smaller or equal to the buffer)
- * @param flags flags that are passed to sendto
- * @param addr pointer to the sockaddr of the receiver
- * @param length the length of the receiver sockaddr
- * @return number of bytes send
- */
-ssize_t send_message(int socket_fd, const void *buffer, size_t size, int flags, struct sockaddr *addr, socklen_t length)
-{
-    ssize_t count = sendto(socket_fd, buffer, size, flags, addr, length);
-    if (count == -1)
-    {
-        prinf_then_exit("error when sending");
-    }
-    return count;
-}
-
-/**
- * @brief a function that receives a message using recvfrom
- * @param socket the receiving socket
- * @param buffer a pointer to the buffer where the message will be stored
- * @param size the size of the data to be received (smaller or equal to the buffer)
- * @param flags flags that are passed to recvfrom
- * @param addr pointer to the sockaddr of the sender (will be filled by recvfrom)
- * @param length the length of the sender sockaddr (will be filled by recvfrom)
- * @param exit exit or not if recvfrom returns -1
- * @return number of bytes received
- */
-ssize_t recv_message(int socket_fd, void *buffer, size_t size, int flags, struct sockaddr *addr, socklen_t *length, int exit)
-{
-    ssize_t count = recvfrom(socket_fd, buffer, size, flags, addr, length);
-    if (count == -1 && exit)
-    {
-        prinf_then_exit("error when sending");
-    }
-    return count;
-}
 
 int main(int argc, char const *argv[])
 {
@@ -82,10 +42,10 @@ int main(int argc, char const *argv[])
         prinf_then_exit("Arguments should be in the from [server-ip] [sever-port] [filename]");
     }
 
-    int socket_fd;                            /* the socket file descriptor of this client*/
-    struct addrinfo hints, *p_serverinfo, *p; /* will be used to get the initial sockaddr of the server*/
-    struct sockaddr_in serveraddr;            /* the server sockaddr_in that we will be communicating over for the rest of the session */
-    socklen_t serveraddr_len;                 /* the size of serveraddr will be filled by recvfrom*/
+    int socket_fd;                                /* the socket file descriptor of this client*/
+    struct addrinfo hints, *p_serverinfo, *p;     /* will be used to get the initial sockaddr of the server*/
+    struct sockaddr_in serveraddr;                /* the server sockaddr_in that we will be communicating over for the rest of the session */
+    socklen_t serveraddr_len = sizeof serveraddr; /* the size of serveraddr will be filled by recvfrom*/
 
     memset(&serveraddr, 0, sizeof serveraddr);
     memset(&hints, 0, sizeof hints);
@@ -117,8 +77,6 @@ int main(int argc, char const *argv[])
     file_request_packet.len = strlen(argv[3]) + 1;
     memcpy(file_request_packet.data, argv[3], file_request_packet.len);
 
-    struct ack_packet response;
-
     struct timeval timeout;
     timeout.tv_sec = 3;
     timeout.tv_usec = 0;
@@ -126,15 +84,16 @@ int main(int argc, char const *argv[])
     int sendStatus;
     int recvStatus;
 
+    struct ack_packet response;
     while (1)
     {
 
-        sendStatus = send_message(socket_fd, &file_request_packet, sizeof(file_request_packet), 0, p->ai_addr, p->ai_addrlen);
+        sendStatus = sendto(socket_fd, &file_request_packet, sizeof(file_request_packet), 0, p->ai_addr, p->ai_addrlen);
         printf("%d bytes was sent\n", sendStatus);
 
-        recvStatus = recv_message(socket_fd, &response, sizeof(response), 0, (struct sockaddr *)&serveraddr, &serveraddr_len, 0);
+        recvStatus = recvfrom(socket_fd, &response, sizeof(response), 0, (struct sockaddr *)&serveraddr, &serveraddr_len);
 
-        if (recvStatus == sizeof(struct packet))
+        if (recvStatus != -1)
         {
             break;
         }
@@ -142,7 +101,7 @@ int main(int argc, char const *argv[])
         printf("timeout, request will be resent\n");
     }
 
-    if (response.ackno == -1)
+    if (response.ackno == 0)
     {
         prinf_then_exit("\nserver doesn't have %s", argv[3]);
     }
@@ -165,16 +124,16 @@ int main(int argc, char const *argv[])
 
     while (total_received != total_number_of_packets)
     {
-        recv_message(socket_fd, &pkt, sizeof(pkt), 0, (struct sockaddr *)&serveraddr, &serveraddr_len, 1);
+        recvfrom(socket_fd, &pkt, sizeof(pkt), 0, (struct sockaddr *)&serveraddr, &serveraddr_len);
         if (expected_seqno != pkt.seqno)
         {
             ack.ackno = pkt.seqno;
-            send_message(socket_fd, &ack, sizeof(ack), 0, (struct sockaddr *)&serveraddr, serveraddr_len);
+            sendto(socket_fd, &ack, sizeof(ack), 0, (struct sockaddr *)&serveraddr, serveraddr_len);
         }
         else
         {
             ack.ackno = expected_seqno;
-            send_message(socket_fd, &ack, sizeof(ack), 0, (struct sockaddr *)&serveraddr, serveraddr_len);
+            sendto(socket_fd, &ack, sizeof(ack), 0, (struct sockaddr *)&serveraddr, serveraddr_len);
             if (fwrite(pkt.data, 1, pkt.len, file) != pkt.len)
             {
                 prinf_then_exit("error when writing to file");
