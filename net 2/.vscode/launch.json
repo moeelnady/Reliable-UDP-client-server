@@ -1,11 +1,12 @@
 {
+    "version": "0.2.0",
     "configurations": [
         {
             "name": "C/C++: gcc build and debug active file",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${fileDirname}/client.exe",
-            "args": ["localhost","8080","libc.pdf"],
+            "program": "${fileDirname}/${fileBasenameNoExtension}",
+            "args": ["8080","7889","0.01"],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
             "environment": [],
@@ -26,6 +27,5 @@
             "preLaunchTask": "C/C++: gcc build active file",
             "miDebuggerPath": "/usr/bin/gdb"
         }
-    ],
-    "version": "2.0.0"
+    ]
 }
