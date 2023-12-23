@@ -6,12 +6,12 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/wait.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <stdarg.h>
 #include <time.h>
-#define MYPORT "8080"
 #define MSS 500
 
 enum state
@@ -50,7 +50,6 @@ void prinf_then_exit(const char *message, ...)
 }
 int getProbability(double plp)
 {
-    srand(time(NULL));
     return (rand() % 100) < ((1 - plp) * 100);
 }
 
@@ -62,6 +61,7 @@ int main(int argc, char const *argv[])
     }
     int seed = atoi(argv[2]);
     double plp = atof(argv[3]);
+    srand(seed);
 
     printf("starting the server..\n");
 
@@ -168,8 +168,8 @@ int main(int argc, char const *argv[])
                 }
                 fclose(requested_file);
                 struct timeval timeout;
-                timeout.tv_sec = 1;
-                timeout.tv_usec = 0;
+                timeout.tv_sec = 0;
+                timeout.tv_usec = 500;
                 setsockopt(socket_fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
                 FILE *details = fopen("details.txt", "w");
                 if (details == NULL)
@@ -282,8 +282,6 @@ int main(int argc, char const *argv[])
                         {
                             printf("timeout, last acked byte was %u\n", last_byte_acked);
                             ssthresh = cwnd / 2;
-                            if (ssthresh < MSS)
-                                ssthresh = MSS;
                             cwnd = MSS;
                             dupACKcount = 0;
                             if (getProbability(plp))
@@ -308,8 +306,6 @@ int main(int argc, char const *argv[])
                             {
                                 current_state = FAST_RECOVERY;
                                 ssthresh = cwnd / 2;
-                                if (ssthresh < MSS)
-                                    ssthresh = MSS;
                                 cwnd = ssthresh + 3 * MSS;
                                 if (getProbability(plp))
                                 {
@@ -359,8 +355,6 @@ int main(int argc, char const *argv[])
                         {
                             printf("timeout, last acked byte was %u\n", last_byte_acked);
                             ssthresh = cwnd / 2;
-                            if (ssthresh < MSS)
-                                ssthresh = MSS;
                             cwnd = MSS;
                             dupACKcount = 0;
                             if (getProbability(plp))
@@ -401,12 +395,18 @@ int main(int argc, char const *argv[])
                 clock_t end = clock();
                 printf("time %lf\n", (double)((end - begin) / CLOCKS_PER_SEC));
                 fclose(details);
+                close(socket_fd);
                 return 0;
             }
         }
         else if (pid == -1)
         {
             prinf_then_exit("error when fork()");
+        }
+        else
+        {
+            int status;
+            waitpid(pid, &status, WNOHANG);
         }
     }
 }
