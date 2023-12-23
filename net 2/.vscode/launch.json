@@ -6,7 +6,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${fileDirname}/${fileBasenameNoExtension}",
-            "args": ["8080","711","0.3"],
+            "args": ["8080","7101","0"],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
             "environment": [],

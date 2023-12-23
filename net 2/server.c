@@ -186,6 +186,8 @@ int main(int argc, char const *argv[])
                     while (current_state == SLOW_START)
                     {
                         // here we sent packets as long it is within the current cwnd
+                        if (last_byte_sent - last_byte_acked <= cwnd && next < total_number_of_packets)
+                            fprintf(details, "%u, %u\n", cwnd, ssthresh);
                         while (last_byte_sent - last_byte_acked <= cwnd && next < total_number_of_packets)
                         {
                             if (getProbability(plp))
@@ -197,7 +199,6 @@ int main(int argc, char const *argv[])
                             {
                                 printf("packet with seqno = %u is lost\n", buff[next].seqno);
                             }
-                            fprintf(details, "%u, %u\n", cwnd, ssthresh);
                             last_byte_sent = buff[next].seqno + buff[next].len - 1;
                             next++;
                         }
@@ -216,7 +217,7 @@ int main(int argc, char const *argv[])
                             {
                                 printf("retransmisson for packet with seqno %u lost\n", buff[(last_byte_acked + 1) / MSS].seqno);
                             }
-                            fprintf(details, "%u, %u\n", cwnd, ssthresh);
+                            // fprintf(details, "%u, %u\n", cwnd, ssthresh);
                             break;
                         }
                         else if (ack_pkt.ackno - 1 <= last_byte_acked)
@@ -238,7 +239,7 @@ int main(int argc, char const *argv[])
                                 {
                                     printf("retransmisson for packet with seqno %u lost\n", buff[ack_pkt.ackno / MSS].seqno);
                                 }
-                                fprintf(details, "%u, %u\n", cwnd, ssthresh);
+                                // fprintf(details, "%u, %u\n", cwnd, ssthresh);
                                 break;
                             }
                         }
@@ -263,6 +264,8 @@ int main(int argc, char const *argv[])
                     }
                     while (current_state == CONGESTION_AVOIDANCE)
                     {
+                        if (last_byte_sent - last_byte_acked <= cwnd && next < total_number_of_packets)
+                            fprintf(details, "%u, %u\n", cwnd, ssthresh);
                         while (last_byte_sent - last_byte_acked <= cwnd && next < total_number_of_packets)
                         {
                             if (getProbability(plp))
@@ -293,7 +296,7 @@ int main(int argc, char const *argv[])
                             {
                                 printf("retransmisson for packet with seqno %u lost\n", buff[(last_byte_acked + 1) / MSS].seqno);
                             }
-                            fprintf(details, "%u, %u\n", cwnd, ssthresh);
+                            // fprintf(details, "%u, %u\n", cwnd, ssthresh);
                             current_state = SLOW_START;
                             break;
                         }
@@ -316,7 +319,7 @@ int main(int argc, char const *argv[])
                                 {
                                     printf("retransmisson for packet with seqno %u lost\n", buff[ack_pkt.ackno / MSS].seqno);
                                 }
-                                fprintf(details, "%u, %u\n", cwnd, ssthresh);
+                                // fprintf(details, "%u, %u\n", cwnd, ssthresh);
                                 break;
                             }
                         }
@@ -336,6 +339,8 @@ int main(int argc, char const *argv[])
                     }
                     while (current_state == FAST_RECOVERY)
                     {
+                        if (last_byte_sent - last_byte_acked <= cwnd && next < total_number_of_packets)
+                            fprintf(details, "%u, %u\n", cwnd, ssthresh);
                         while (last_byte_sent - last_byte_acked <= cwnd && next < total_number_of_packets)
                         {
                             if (getProbability(plp))
@@ -347,7 +352,6 @@ int main(int argc, char const *argv[])
                             {
                                 printf("packet with seqno = %u is lost\n", buff[next].seqno);
                             }
-                            fprintf(details, "%u, %u\n", cwnd, ssthresh);
                             last_byte_sent = buff[next].seqno + buff[next].len - 1;
                             next++;
                         }
